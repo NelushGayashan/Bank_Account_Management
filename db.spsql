@@ -1,0 +1,68 @@
+-- Create the database
+CREATE DATABASE bank_accounts;
+
+-- Connect to the database
+\c bank_accounts;
+
+-- Create the accounts table
+CREATE TABLE accounts (
+    account_number VARCHAR(20) PRIMARY KEY,
+    balance NUMERIC
+);
+
+-- Create the transactions table
+CREATE TABLE transactions (
+    id SERIAL PRIMARY KEY,
+    account_number VARCHAR(20),
+    transaction_type VARCHAR(20),
+    amount NUMERIC,
+    new_balance NUMERIC,
+    transaction_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (account_number) REFERENCES accounts(account_number)
+);
+
+-- Function to deposit amount into an account
+CREATE OR REPLACE FUNCTION deposit_amount(account_num VARCHAR(20), amount NUMERIC)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE accounts
+    SET balance = balance + amount
+    WHERE account_number = account_num;
+    
+    INSERT INTO transactions (account_number, transaction_type, amount, new_balance)
+    VALUES (account_num, 'deposit', amount, (SELECT balance FROM accounts WHERE account_number = account_num));
+    
+    COMMIT;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to withdraw amount from an account
+CREATE OR REPLACE FUNCTION withdraw_amount(account_num VARCHAR(20), amount NUMERIC)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE accounts
+    SET balance = balance - amount
+    WHERE account_number = account_num;
+    
+    INSERT INTO transactions (account_number, transaction_type, amount, new_balance)
+    VALUES (account_num, 'withdraw', amount, (SELECT balance FROM accounts WHERE account_number = account_num));
+    
+    COMMIT;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Example usage: create an account
+INSERT INTO accounts (account_number, balance)
+VALUES ('A123', 1000.0);
+
+-- Example usage: deposit into account 'A123'
+SELECT deposit_amount('A123', 500.0);
+
+-- Example usage: withdraw from account 'A123'
+SELECT withdraw_amount('A123', 200.0);
+
+-- Example usage: check balance of account 'A123'
+SELECT balance FROM accounts WHERE account_number = 'A123';
+
+-- Example usage: view transaction history for account 'A123'
+SELECT * FROM transactions WHERE account_number = 'A123';
